@@ -1,0 +1,8 @@
+{
+  "icon": "widgets",
+  "labels": { "": "My Widget" },
+  "name": "My Widget",
+  "properties": [
+    { "labels": { "": "Title" }, "name": "title", "type": "string" }
+  ]
+}
