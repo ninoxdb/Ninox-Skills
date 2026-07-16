@@ -1,0 +1,35 @@
+name: Build skill zips
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach zips to (e.g. v0.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Zip each skill
+        run: |
+          mkdir -p dist
+          for dir in skills/*/; do
+            name=$(basename "$dir")
+            (cd skills && zip -r "../dist/$name.zip" "$name" -x "*/.DS_Store")
+          done
+
+      - name: Upload zips to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: dist/*.zip
