@@ -64,6 +64,13 @@ When a user asks to "create a database/app" in Ninox, there is no single create-
 endpoint. Implement it as: create a **module** → create **tables** → create **fields** →
 seed rows or import CSV.
 
+Always confirm against the live Swagger, since Ninox can add fields and endpoints:
+
+- Swagger UI: https://go.ninox.com/api/docs
+- OpenAPI JSON / YAML: https://go.ninox.com/api/docs-json , https://go.ninox.com/api/docs-yaml
+- Endpoint docs (markdown): https://docs.ninox.com/ninox-api/api-reference/api-endpoints.md
+  (every page also answers questions via `?ask=<question>&goal=<goal>`)
+
 ## Setup
 
 Configure these as environment variables (only `NINOX_API_KEY` is strictly required):
