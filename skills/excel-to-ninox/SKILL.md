@@ -17,12 +17,15 @@ description: >
 
 The goal is not a copy of the spreadsheet. It is a Ninox app that captures what the
 spreadsheet *means*, runs the same process on new data going forward, and lets the
-user retire the Excel file. Reproduce the exact logic; redesign the structure.
+user retire the Excel file. The new Ninox app must be intuitive to use for the users of the Excel. 
 
-Work in phases. There are two hard gates, and both end your turn: after Phase 2
-(the user has answered the open questions in the conversation) and after Phase 3
-(the user has reviewed and approved the build guide). Nothing gets created in Ninox
-before both gates are passed. Do not skip ahead — in particular, do not build
+Keep labels and names mostly similar, and ask for approval to change namings, especially of tables/sheets.
+
+Reproduce the exact logic; redesign the structure where necessary. 
+Keep the app as simple as possible, not introducing unecessary tables or links. 
+Think about a smart database schema for the final solution.
+
+Work in phases. Do not skip ahead — in particular, do not build
 anything before the logic is understood, the user has answered the open questions,
 and the build guide is written.
 
@@ -51,8 +54,7 @@ or a verification check fails:
    and end the turn. The user decides — never the workaround.
 4. Partial success is reported as exactly that, with counts — never rounded up to
    done. A verification mismatch in Phase 5 or 7 is a failure under this rule too.
-5. The approved build guide is the contract: if an error forces a deviation, the
-   user amends the guide first, then the build continues.
+
 
 ## Phase 0 — inspect the workbook cheaply
 
@@ -100,7 +102,7 @@ number; `currency`/`percent` inform the field and its display; a boolean column
 becomes a yes/no field; a list validation becomes a choice field with exactly
 those options — but a **large range-fed dropdown is usually an entity list**, so
 when the inspector reports the referenced range as too big for a choice, plan an
-extracted table plus a reference field instead. Per-column cardinality separates
+extracted table plus a dynamic choice field (or in exceptions reference field) instead. Per-column cardinality separates
 entity columns (thousands of rows, a low distinct-to-rows ratio → a table of
 their own plus a reference) from label sets (a handful of distinct values → a
 choice field) and identifiers (ratio near 1). Hidden sheets, columns, and rows are
@@ -145,7 +147,7 @@ Only inputs and the *meaning* of derived cells carry over. Artifacts get left
 behind.
 
 One rule is absolute: **what is a formula in Excel MUST be a formula in Ninox** —
-a function field's expression, or a value written by a named automation or button
+usually a function field's expression. In rare cases it can be a value written by a named automation or button
 script. Never compute a derived value during the build and store the result in a
 plain data field: a static number is correct exactly once and silently wrong from
 the first edit onward, which defeats the entire port.
@@ -183,8 +185,7 @@ logic isn't understood yet — keep going until they do.
 
 ## Phase 2 — ask the user (hard stop — do not assume)
 
-Put the open questions to the user directly in the conversation, as questions, and
-end the turn. Wait for the answers. Do not fold unanswered questions into a
+Put the open questions to the user directly in the conversation, as questions, and WAIT for the answers. Do NOT fold unanswered questions into a
 document and keep going — an unresolved question is a blocker, not a footnote, and
 a wrong assumption baked into a schema is expensive to undo.
 
@@ -194,9 +195,7 @@ example: undocumented abbreviations or codes; tie-breaking and ordering rules;
 rounding; how edge cases should behave (overshoot, negatives, empties); and the
 process around the file — who enters what and when, how often new data arrives,
 whether it covers one entity or many, what happens on the next transaction,
-retention, validation, and access. (Don't ask which columns are entered versus
-computed — a column with a formula is computed, a literal column is an input, and
-the inspector already shows which columns carry formulas.)
+retention, validation, and access.
 
 If, after real scrutiny, nothing in the file is ambiguous, say so explicitly and
 still confirm the process facts (who enters what, cadence, one entity or many)
@@ -215,37 +214,28 @@ and what each implies, related ones grouped. Five questions that change the sche
 beat fifty reflexive ones; if the list genuinely grows large, lead with the
 schema-changing ones and raise the rest during the build-guide review.
 
-## Phase 3 — write the build guide first (mandatory)
-
-Before building, copy `references/build_guide_template.md` into the project working
-directory as `<project>_build_guide.md` and fill it in completely: the logic
-transcription, the real-world process, the proposed Ninox architecture, the exact
-NX for every formula field and automation, the API build plan, the open questions,
-and the verification targets. When sharing it, lead — in the chat message itself —
-with a plain-words description of the proposed app for a non-technical reader: what
-lists (tables) it has, how they connect ("each order knows which customer it
-belongs to"), what happens automatically, and what the user will do day to day. No
-jargon; the technical tables in the guide back it up, but the approval decision
-must be understandable without them. Then end the turn.
-This document is the thing they sign off on; the app is built from it, not from a
-mental model. Do not start Phase 5 until the user has approved the guide and its
-open-questions section is empty.
-
-## Phase 4 — design the architecture (like a senior modeller)
+## Phase 3 — design the architecture (like a senior modeller)
 
 Capture the meaning relationally. Do not mirror the sheet's layout. Common moves:
 
 - A repeated row block (a ledger) → a table, one record per row.
+
 - Header + line items → a parent table and a child table joined by a reference.
+
 - A lookup between blocks (VLOOKUP, INDEX/MATCH, cross-sheet) → a reference field,
   then read across it.
+
 - A column of repeated names or labels that denotes an **entity** — customers,
   products, countries, staff: things with identity that could carry their own
   attributes — → its own table plus a reference, even if the sheet never kept a
-  separate list. The inspector's `column_cardinality` shows the candidates: 214
+  separate list. Make sure not to overcomplicate the app by adding too many entities. 
+  Only create tables where necessary and beneficial from a datamodelling perspective.
+  
+  The inspector's `column_cardinality` shows the candidates: 214
   distinct customers across 48k rows is a customer table; 4 distinct statuses is a
   choice field, not a table. Present each proposed extraction in the build guide,
   with its evidence, for the user to approve.
+
 - A running total or a "match against earlier rows" array formula → usually **not**
   a stored column. Either a formula field that aggregates related records, or a
   **stateful** design where an automation or button writes child records once and
@@ -273,54 +263,51 @@ Future-proofing check: the model must accept new rows, new entities, and the nex
 transaction with no formula edits. If adding next month's data would mean editing
 formulas, the design is still a spreadsheet in disguise.
 
+## Phase 4 — write the build guide first (mandatory)
+
+Before building, copy `references/build_guide_template.md` into the project working
+directory as `<project>_build_guide.md` and fill it in completely: the logic
+transcription, the real-world process, the proposed Ninox architecture, the exact
+NX for every formula field and automation, the API build plan, the open questions,
+and the verification targets. 
+After creating it, ask the user regarding open questins and share the build guide for approval.
+When sharing it, lead — in the chat message itself —
+with a plain-words description of the proposed app for a non-technical reader: what
+lists (tables) it has, how they connect ("each order knows which customer it
+belongs to"), what happens automatically, and what the user will do day to day. No
+jargon; the technical tables in the guide back it up, but the approval decision
+must be understandable without them. Wait for the users answer.
+This document is the thing the app is built from, not from a
+mental model. Do not start Phase 5 until the build guides open-questions section is empty.
+
 ## Phase 5 — build the structure and data via the API
 
 Follow `references/ninox_api_reference.md` — and if a standalone `ninox` skill is
 installed alongside this one, read that too; where the two disagree on what the
 API accepts, **the probe below decides, not either document**. Before the real
 build, probe the workspace with a scratch module: create it, add one `function`
-field with an expression, read it back, delete it. That confirms the key, the
-workspace id, and — in under a minute — which of three regimes this workspace is
-in (regime A is the verified, expected case as of 2026-07-14; B and C have been
-observed on other workspaces/versions and the probe is what rules them out):
+field with an expression, read it back, delete it. 
 
-- **A. Function + expression accepted and read back intact** → build formula
-  fields and `zz_setup_` staging fields through the API as below.
-- **B. Function fields create but the expression is rejected or comes back
-  empty** → create the formula fields as empty `function` placeholders via the
-  API; every expression is pasted in the editor in Phase 6 from the build guide,
-  which already carries the exact NX. Staging fields can't carry scripts in this
-  regime either, so scripts are pasted from the build guide too.
-- **C. The `function` type is rejected outright** → no formula or staging fields
-  via the API at all; Phase 6 grows: the user creates each formula field in the
-  editor and pastes its exact NX from the build guide, then the automations and
-  buttons the same way.
-
-Whatever the regime, only the **delivery channel** changes — never the design. A
-formula stays a formula; regime B or C never turns a function field into a data
-field with imported values (that is the silent downgrade the failure rule
-forbids). Record the probe's outcome in the build guide. Then, in order:
+Then, in order:
 
 1. Create the module (the app).
 2. Create each table.
 3. Create data fields in a batch per table; add `reference` fields once both tables
-   exist (set `refTableName` to the target table's internal name). Create `choice`
-   fields **with** their full options list — verified working (2026-07-14):
+   exist (set `refTableName` to the target table's internal name). Remember that sometimes dynamic choice fields can be used instead of a reference field to improve UX.
+   Create `choice` fields **with** their full options list:
    `options` is an array of `{"name": "..."}` objects, ids are assigned by the
    system, and to extend later you PATCH resending the existing options with their
    ids plus the new ones without. Choice writes are label-sensitive (`"active"`
    has failed where `"Active"` succeeded), so the load in step 6 must use the
-   exact option spellings the build guide specifies. (If an older workspace rejects `options`
-   with `400 Unrecognized key(s)`, fall back to creating the field bare and
-   setting the options in the editor in Phase 6.)
-4. Create the formula fields per the probe regime: in regime A, `"type":
-   "function"` with the exact NX from the build guide as the `expression`, in a
+   exact option spellings the build guide specifies. 
+4. Create the formula fields, "type":
+   "function"` with the NX from the build guide as the `expression`, in a
    batch of their own, in dependency order, once every field they reference
    exists.
-5. Regime A only: create a `zz_setup_` staging field for each automation and
+5. Create a `zz_setup_` staging field for each automation and
    button — a function field whose expression is the script as an inert raw string
    (`---...---`), so the user copies the code inside Ninox rather than from a
-   document (pattern in the API reference).
+   document (pattern in the API reference). Remember that for most things you do not need an automation and you can use a formula field directly.
 6. Load data: export the input columns with `scripts/extract_data.py`
    (`--exclude-rows` takes the inspector's `likely_summary_rows`; dates arrive as
    ISO, booleans as `true`/`false`, decimals with a dot — import with
@@ -329,12 +316,13 @@ forbids). Record the probe's outcome in the build guide. Then, in order:
    columns, plus any frozen-state values the build guide designates for historic
    rows (an automation only fires for new records). Never import a column that a
    function field now computes — the formula produces it, and comparing its
-   computed values against the sheet is the verification.
+   computed values against the sheet is the verification. 
+   Check that all data was extracted by the script and flag if some data is missing.
 7. Read records back and verify at row level: for **every table**, at least one
    test row, checked **field by field** against the source — inputs, references,
    and formula results alike (details and the type-fidelity traps in Phase 7). The
    API accepts an expression without proving it correct, so this read-back is what
-   validates it.
+   validates it. Correct where needed.
 
 Builds should be resumable: `GET` the workspace tree first and skip or reconcile
 anything a previous run already created — re-POSTing an existing name fails, and in
@@ -351,27 +339,19 @@ next phase use, so choose it once and keep a name↔label map. Pass the API key 
 the environment (`NINOX_API_KEY`) or the consent-gated `~/.ninox/.env` pattern the
 companion ninox skill defines; never hardcode it in scripts or command lines.
 
-## Phase 6 — wire up the remaining logic in the editor
+## Phase 6 — Review UX & remaining logic
+Review the created app: Is it understandable by a user of the spreadsheet? Is it self explanatory? 
+Is the UX excellent (e.g. using dynamic choice instead of reference fields where appropriate?).
+Ensure the app is not introducing unnecessary complexity, e.g. by creating too many tables.
 
-What lands here depends on the Phase-5 probe regime. In regime A the automations
-and buttons are already waiting inside the app: each `zz_setup_` staging field
-displays its script, and the user copies the code into its real host (the
-automation event or the button) and confirms it there. In regimes B and C the
-build guide is the source: the user pastes each formula expression into its
-(placeholder or freshly created) function field, then the scripts into their
-automations and buttons. Also repair any formula expression the Phase-5 read-back
-caught. Follow `references/ninox_scripting_conventions.md`: refer to fields by
+Repair any unfixd formula expression the Phase-5 read-back caught. 
+Follow `references/ninox_scripting_conventions.md`: refer to fields by
 their internal name, prefer `select ... where` over bracket filtering, guard
 process actions and pair them with a reset, and validate everything in the logic
 editor, which checks syntax live and is the source of truth.
 
-Two more editor tasks complete the app:
+Another editor task completes the app:
 
-- **Choice options.** These normally went in via the API in Phase 5 — here, verify
-  in the UI that each choice field shows exactly the options the build guide lists
-  (spelling and case must match the loaded data — the Phase-7 checks compare
-  choice values against the option spelling), and set them by hand only if the
-  workspace rejected `options` on creation.
 - **Views and dashboards.** Create the views the build guide specifies (each with
   its source table, view type, columns, grouping, and filter) — this is where the
   workbook's charts and pivots live on. There is no API for views, so the guide's
@@ -425,8 +405,8 @@ An invoices workbook with an "Invoices" block, an "Invoice Lines" block below it
 looked up from a "Rates" sheet becomes: an Invoice table and an InvoiceLine table
 joined by a reference; `Line Total` as a formula field on InvoiceLine; the running
 `Order Total` dropped (it was an artifact) in favour of an `Order Total` formula
-field on Invoice that sums its lines; and a reference from Invoice to a Rate table
-instead of the cross-sheet lookup. The layout changed; the meaning didn't.
+field on Invoice that sums its lines; Tax rates are part of the invoice table as either a number or a single choice, depending on the user choice.
+The layout changed; the meaning didn't.
 
 ## Files
 
