@@ -10,9 +10,9 @@ description: >-
   go.ninox.com API, a NINOX_API_KEY, or asks to build, query, or modify a Ninox database or
   app structure through the API — even if they don't name the specific operation.
 license: MIT
-compatibility: "Requires curl and python3. Needs a NINOX_API_KEY environment variable or a saved ~/.ninox/.env file; NINOX_API_BASE (default https://go.ninox.com) and NINOX_WORKSPACE_ID are optional. Works on Linux, macOS, and Windows."
+compatibility: "Requires python3 (curl optional — the bundled scripts use only the standard library). Needs a NINOX_API_KEY environment variable or a saved ~/.ninox/.env, ~/.env, or ./.env file; NINOX_API_BASE (default https://go.ninox.com) and NINOX_WORKSPACE_ID are optional. Works on Linux, macOS, and Windows."
 metadata:
-  version: "2.4.0"
+  version: "2.5.0"
   tags: [ninox, api, database, discovery, records, crud, schema, csv, scripting]
 ---
 
@@ -152,6 +152,11 @@ Working rules:
 - **At the start of any Ninox task, check this file first.** If it exists and holds a
   matching workspace, load it instead of asking the user for credentials again:
   `set -a; . ~/.ninox/.env; set +a` (bash), or parse it line-by-line in PowerShell.
+- **If it isn't there, check `~/.env` and `./.env` before asking again** — users commonly
+  put the key in one of those. `scripts/nxapi.py` checks all three plus the environment.
+- **A shell `export` in the user's own terminal does not reach a tool-spawned shell.**
+  If the user says they supplied a key but the environment is empty, that mismatch is
+  usually why — ask them to write it to `~/.ninox/.env` rather than exporting it.
 - **Never save credentials without asking first.** When the user supplies a new workspace
   id, app URL, or API key, ask them explicitly whether they want it saved to
   `~/.ninox/.env` — and write it only after a clear yes (append, don't overwrite other
@@ -197,6 +202,59 @@ Two rules that prevent most failures:
   before preparing the next change. Bulk writes can succeed at the HTTP layer while the
   surrounding table/module state becomes untrustworthy; if a table or module disappears
   from discovery right after a write, stop and ask the user before rebuilding.
+
+## Building an app: the fast path
+
+Most requests ("build me a tracker", "port this process into Ninox") are a **multi-table
+build**: 30–60 calls with dependencies between them. Do it in this order — steps 3, 6 and
+8 are the ones that are expensive to get wrong.
+
+```text
+1.  preflight        python3 scripts/preflight.py      (credentials + capabilities, ~15s)
+2.  module
+3.  ALL tables                                          before any reference field
+4.  plain fields     batched per table
+5.  reference fields                                    targets now exist
+6.  re-read parent tables                               learn the auto-created reverse names
+7.  function fields  children before parents            check expressionErrors on each
+8.  seed parents -> keep returned ids -> seed children using those ids
+9.  verify           row counts, expressionErrors, computed values vs hand-calculated
+10. delete scratch/probe objects
+```
+
+Use **`scripts/nxapi.py`** rather than hand-rolling curl for a build of this size. It is
+dependency-free and encodes the easy-to-miss parts as behaviour: `insert()` asserts the
+returned id count matches the row count (so a short return cannot silently under-link
+children), `create_function()` returns `expressionErrors` as a third value, `all_records()`
+paginates past the 100-row cap, and `call()` retries 429/5xx/connection resets.
+
+```python
+import sys; sys.path.insert(0, 'scripts')
+from nxapi import Ninox
+
+nx = Ninox()                                     # env, ~/.ninox/.env, ~/.env, ./.env
+nx.create_module('printops', 'Druckbetrieb')
+nx.create_table('printops', 'sites', 'Standorte')        # step 3: all tables first
+nx.create_table('printops', 'machines', 'Maschinen')
+nx.create_fields('printops', 'sites', [                  # step 4: plain fields, batched
+    {'name': 'site_code', 'labels': {'': 'Code'}, 'type': 'string', 'unique': True},
+])
+nx.create_reference('printops', 'machines', 'site', 'Standort', 'sites')   # step 5
+
+st, body, errs = nx.create_function('printops', 'sites', 'machine_count', 'Maschinen',
+                                    'cnt(machines)')
+assert not errs, errs                            # a broken expression still returns 201
+
+ids = nx.insert('printops', 'sites', [{'site_code': 'DE-HH'}])
+rows = nx.all_records('printops', 'sites', ['site_code', 'machine_count'])
+```
+
+**Step 6 is the one that surprises people.** Creating a `reference` on the child
+auto-creates a **reverse** field on the parent, named after the **child table** — that name
+is what aggregates traverse (`cnt(machines)`, `sum(production_runs.good_qty)`). Read the
+parent's fields after creating references rather than guessing it. The preflight reports it
+too. Formula patterns for this and the rest of an app build are in
+**`references/nx-cookbook.md`**.
 
 ## Resource hierarchy
 
@@ -491,6 +549,12 @@ Key constraints and gotchas to know up front:
   empty-string key (`{"": "..."}`) is the observed-working default form; locale-keyed
   labels (`{"en": "..."}`) also appear in the docs and the wild. When editing existing
   objects, mirror whatever shape discovery returns.
+- **Avoid Ninox script keywords as field or table names.** A field called `order` is
+  created happily but every formula referencing it fails to parse (`order by`). Steer
+  clear of at least: `order`, `select`, `where`, `let`, `if`, `then`, `else`, `end`,
+  `for`, `do`, `while`, `break`, `and`, `or`, `not`, `null`, `this`, `function` — suffix
+  instead (`order_ref`). Renaming later is a PATCH on `name`, but every formula using the
+  old name must change in the same pass, so decide it at design time.
 - **Roles:** module/table role arrays use `admin`/`editor`; field role arrays use
   `admin`/`user`.
 - **`choice` fields:** always decide and state the exact allowed labels up front (e.g.
@@ -561,6 +625,11 @@ patterns, the Excel→Ninox translation workflow, and the FIFO/inventory pattern
 **`references/scripting-and-formulas.md`**. Read it whenever the task involves Ninox formulas
 or Excel formula migration.
 
+For formulas in an app you are **building** (rather than migrating), read
+**`references/nx-cookbook.md`** instead: aggregating children over reverse relations,
+filtering a relation with `relation[condition]`, two-level traversal, null-safe aggregates,
+date windows, status buckets, and how to verify a formula actually computes.
+
 ---
 
 ## Errors and limits
@@ -617,3 +686,46 @@ under-report) — the verify step of the operating loop is what confirms the out
 - [ ] Special field write shapes verified before writing them
 - [ ] Destructive operations confirmed with the user beforehand
 - [ ] Affected object re-read (schema and representative records) after mutation
+
+### After a build (definition of done)
+
+A formula that compiles is not a formula that is correct, and a 201 is not a row.
+
+- [ ] Every table's row count equals what was inserted
+- [ ] No `function` field carries `expressionErrors` (check the create/PATCH response, and
+      re-read the fields)
+- [ ] At least one computed value per formula checked against a **hand-calculated**
+      expectation, on a row where the answer is non-trivial
+- [ ] At least one **edge row** checked: no children, zero quantity, empty relation
+- [ ] Scratch and probe objects deleted (see the naming convention below)
+- [ ] The module contains only what the plan specified — no leftovers from a retry
+
+Reading a value back and finding *a* number there proves nothing. Compare it to a number
+you worked out yourself.
+
+### Scratch objects
+
+Probes and experiments need somewhere to live. Prefix them `zz_` (`zz_probe`, `zz_dash`),
+keep them out of tables that hold real data, and delete them in the same session that
+created them — an agent that leaves `zz_` objects behind has not finished the build.
+
+---
+
+## Scripts
+
+Both are pure standard library (no installs) and travel with the skill.
+
+- `scripts/nxapi.py` — Ninox Public API client for builds. Loads credentials from the
+  environment or `~/.ninox/.env` / `~/.env` / `./.env`; retries 429/5xx/connection resets;
+  `insert()` asserts the returned id count matches the rows sent; `create_function()`
+  surfaces `expressionErrors` as a third return value; `all_records()` paginates past the
+  100-row cap. Returns `(status, body)` and never raises on an HTTP error — read the error
+  body and fix the cause.
+- `scripts/preflight.py` — one-shot capability probe. Creates a throwaway module, checks
+  auth, module/table/field creation, `choice` options, non-ASCII labels, `function` field
+  creation *and* whether it computes, choice round-trip, and the auto-created reverse field
+  name; deletes the module; prints a report. Run it before committing to a build plan:
+
+  ```bash
+  python3 scripts/preflight.py
+  ```
