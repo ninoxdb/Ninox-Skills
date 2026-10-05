@@ -169,9 +169,11 @@ field computes:
   is rejected.)
 
 **NOT writable through the API — build these in the logic editor:**
-automations (On create / On update / On delete), buttons, **views, pages, and
-dashboards** (there is no views API — the build guide's view specs are built by
-hand in Phase 6), and the `lambda` / `html` / `react` / `styled` field kinds.
+automations (On create / On update / On delete), buttons, **pages and
+dashboards**, and the `lambda` / `html` / `react` / `styled` field kinds. (Table
+views *are* writable: `POST .../tables/{t}/views`, verified 2026-10-05; see the
+`ninox` skill's Views section. The build guide's view specs are created that way
+in Phase 6.)
 There is also no script-execution endpoint.
 
 **Staging pattern for editor-only logic.** Ship the automation and button scripts

@@ -125,8 +125,8 @@ real business thresholds map to Ninox dynamic styling or a status formula field 
 name each rule and its Ninox counterpart. If the workbook has charts or pivots,
 **specify** each replacement view or dashboard, not just its name: source table,
 view type, columns, grouping, filter, and (for charts) the chart type and series —
-these are built by hand in the editor in Phase 6 because there is no views API, so
-this spec is the only place they exist before then. End with two audits: a
+table views are created through the views API in Phase 6 and dashboards by hand in
+the editor, so this spec is the only place they exist before then. End with two audits: a
 **derived-coverage check** — walk
 section 2's derived columns and confirm each one maps to a function field or a
 named script, with none silently demoted to a static data column — and the

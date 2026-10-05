@@ -248,9 +248,11 @@ creates modules, tables, data fields, references, records — and formula
 (`function`) fields **with their NX expression**, which is verified working live
 (2026-07-14: the expression persists, computes on record reads, and can be revised
 by PATCHing `expression`). The cheap Phase-5 probe still runs per workspace as a
-sanity check, since older workspaces have disagreed before. What the API can never
-create are automations, buttons, views, pages, or dashboards, and it cannot run
-scripts; that logic and presentation is authored in the editor.
+sanity check, since older workspaces have disagreed before. Table views (Table, Chart,
+Pivot, Kanban, Calendar, …) **can** be created through the API (see the `ninox`
+skill's Views section). What the API cannot create are automations, buttons, pages,
+or dashboards, and it cannot run scripts; that logic and presentation is authored
+in the editor.
 Either way, the Phase-1 rule is binding: what is a formula in Excel is a formula
 in Ninox. Computing a value during the build and storing it as a static number is
 not a port, it is a snapshot. The only stored derived values allowed are the
@@ -353,9 +355,11 @@ editor, which checks syntax live and is the source of truth.
 Another editor task completes the app:
 
 - **Views and dashboards.** Create the views the build guide specifies (each with
-  its source table, view type, columns, grouping, and filter) — this is where the
-  workbook's charts and pivots live on. There is no API for views, so the guide's
-  spec is the deliverable and the editor is the tool.
+  its source table, view type, columns, grouping, and filter). This is where the
+  workbook's charts and pivots live on. Table views (Chart, Pivot, Kanban, Calendar,
+  …) are created through the API from the guide's spec (`POST .../tables/{t}/views`,
+  see the `ninox` skill's Views section); have the user check the rendering in the
+  UI. Dashboards and pages have no API and are built in the editor.
 
 Once everything is pasted, set, and verified, delete the staging fields via
 `DELETE .../fields/batch`.
