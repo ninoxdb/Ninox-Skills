@@ -608,8 +608,6 @@ script expression, e.g. `machine.machine_code + " · " + sales_order.order_no`. 
 `ganttConfig`, `pivot`, and `annualRecurring` for calendars). PATCH merges nested configs,
 so it only needs the settings that change.
 
-Verified live (2026-10-05, workspace `ap5rsyeldxi9`); the payload read back intact:
-
 ```json
 {"name": "auftrags_board", "labels": {"": "Auftrags-Board"}, "type": "Kanban",
  "groupBy": [{"fieldName": "status"}], "sort": {"fieldName": "due_date", "direction": "asc"},
