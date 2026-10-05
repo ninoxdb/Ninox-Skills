@@ -47,11 +47,13 @@ script/formula expressions. Everything is driven through `curl` + `python3`.
 
 The documented Public API covers **data, schema, and workspace** resources:
 workspace info, module CRUD, table CRUD, field CRUD (incl. batch), record CRUD, and CSV
-import. It does **not** document endpoints for the UI/builder layer — views, pages,
-dashboards, layouts, tabs, or saved presentation settings. Those are configured in the
-Ninox builder UI, documented in the general product docs (start at
-`https://docs.ninox.com/getting-started`). Schema/data changes can *indirectly* change what
-users see, but there is no documented API for mutating UI constructs directly. Creation of
+import. **Table views are covered too** (live spec, verified 2026-10-05): create, list,
+update and delete views of every type — `Table`, `List`, `Kanban`, `Calendar`, `Gantt`,
+`Gallery`, `Chart`, `Pivot`, `Maps` — see the Views section under Schema admin. Pages,
+dashboards, form layouts and tabs still have no documented endpoint; those are configured
+in the Ninox builder UI (start at `https://docs.ninox.com/getting-started`). The live spec
+also lists `components`, module `functions`, `reports`, `records/upsert` and `script/exec`;
+these are not yet verified here, so read `docs-json` and probe before relying on them. Creation of
 logic/`function` (formula) fields via the API **is supported**: create with
 `"type": "function"` plus an `expression` (Ninox script), and revise the logic later by
 PATCHing `expression`. Verified live (2026-07-14, workspace `h59x05245p0i`): the
@@ -593,6 +595,41 @@ Key constraints and gotchas to know up front:
   just-created table, re-read both the module's tables listing and the direct table endpoint
   in the same run. New tables have been observed to read fine, then later vanish / return
   `404`. If either check fails, stop and ask the user to confirm UI visibility.
+
+### Views
+
+`POST .../tables/{tableName}/views` creates a view and `GET` on the same path lists them.
+`GET/PATCH/DELETE /api/v1/workspace/{workspaceId}/views/{viewId}` act on one view (the id
+has 12 characters). Required keys: `name` (`^[a-z0-9_]+$`), `type`, and `columns` (min. 1,
+each `{field, order}`). Fields are referenced by **name**. A column's `field` may also be a
+script expression, e.g. `machine.machine_code + " · " + sales_order.order_no`. Optional:
+`labels`, `sort` `{fieldName, direction}`, `groupBy` `[{fieldName, direction?}]`, `filter`,
+`search`, `conditionalFormatting`, `icon`, plus per-type configs (`chartConfig`,
+`ganttConfig`, `pivot`, and `annualRecurring` for calendars). PATCH merges nested configs,
+so it only needs the settings that change.
+
+```json
+{"name": "auftrags_board", "labels": {"": "Auftrags-Board"}, "type": "Kanban",
+ "groupBy": [{"fieldName": "status"}], "sort": {"fieldName": "due_date", "direction": "asc"},
+ "columns": [{"field": "order_no", "order": 0, "role": "title"},
+             {"field": "due_date", "order": 1}]}
+```
+
+```json
+{"name": "produktionskalender", "labels": {"": "Produktionskalender"}, "type": "Calendar",
+ "columns": [{"field": "machine.machine_code + \" · \" + sales_order.order_no", "order": 0, "role": "title"},
+             {"field": "planned_start", "order": 1, "role": "date"}]}
+```
+
+- Kanban: the board's lanes come from `groupBy` on a `choice` field, and the card title is
+  the column with `role: "title"`.
+- Calendar: the column with `role: "date"` sets the position, and `role: "title"` the label.
+  Other documented roles: `image`, `location`, `color`.
+- Every table already has a default `Table` view named after the table. List the views
+  before creating one, and skip any whose `name` already exists. Nothing stops you from
+  creating a duplicate.
+- A read-back only proves the config was stored. Have the user check the rendering in the
+  UI once.
 
 ---
 
