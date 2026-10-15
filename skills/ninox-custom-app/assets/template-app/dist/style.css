@@ -1,5 +1,8 @@
 * { box-sizing: border-box; }
 
+/* Keeps the hidden attribute working on elements whose display is set below (form, .grid). */
+[hidden] { display: none !important; }
+
 body {
     background: #f4f5fa;
     color: #1a1a2e;
@@ -42,3 +45,4 @@ button, .button {
 }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 .back { color: #4056d6; display: inline-block; margin-bottom: 0.75rem; }
+.privacy { color: #5a5a66; font-size: 0.8rem; margin: 0.25rem 0 0.5rem; }

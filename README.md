@@ -27,11 +27,12 @@ Building Custom Widgets for the Ninox v4 PageBuilder: sandboxed HTML/CSS/JS mini
 
 ### `ninox-custom-app`
 
-Building Ninox Custom Apps: standalone web apps (catalogs, order and booking forms, portals) that Ninox hosts on their own `ninoxapps.com` subdomain, backed by the tables of a Ninox 4 module.
+Building Ninox Custom Apps: standalone web apps that Ninox hosts on their own `ninoxapps.com` subdomain, backed by the tables of a Ninox 4 module. Directories, catalogs, forms, surveys, booking and order requests, multi-step wizards with uploads, public dashboards.
 
+- Maps any request onto what custom apps support today (anonymous visitors, server-filtered reads, record creation with file attachments) and names the gaps up front, including public access and privacy notices
 - Produces the complete folder for the "Deploy custom app" dialog: `app.json` (data model and access rules), seed CSVs, and a built `dist/` with the app SDK
-- Designs within what custom apps support today: anonymous visitors, server-filtered reads, record creation with file attachments
-- A check script that replays the deploy validation offline (manifest rules, row filters, CSV merge keys, the field types the first deploy will infer, files the upload would corrupt, SDK calls against undeclared tables or fields) and packages a clean upload folder
+- A local mock of the Ninox gateway to run the app before deploying
+- A check script that replays the deploy validation offline (manifest rules, row filters, CSV merge keys, the field types the first deploy will infer, files the upload would corrupt, SDK calls against undeclared tables or fields, permission changes) and packages a clean upload folder
 - A starter template app, and a step-by-step deploy walkthrough with troubleshooting for every deploy error message
 
 ### `excel-to-ninox`
@@ -45,8 +46,8 @@ Depends on the `ninox` skill for API mechanics.
 Copy the skill folders into wherever your assistant looks for skills. For Claude Code:
 
 ```bash
-git clone https://github.com/<you>/<this-repo>.git
-cp -r <this-repo>/ninox <this-repo>/ninox-custom-widget <this-repo>/ninox-custom-app <this-repo>/excel-to-ninox ~/.claude/skills/
+git clone https://github.com/ninoxdb/Ninox-Skills.git
+cp -r Ninox-Skills/skills/ninox Ninox-Skills/skills/ninox-custom-widget Ninox-Skills/skills/ninox-custom-app Ninox-Skills/skills/excel-to-ninox ~/.claude/skills/
 ```
 
 On Claude.ai, upload the folders as custom skills in your settings.

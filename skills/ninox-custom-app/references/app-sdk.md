@@ -2,6 +2,8 @@
 
 The SDK is one ES module file, `ninox-app-sdk.js` (version 0.1.0), shipped in `assets/template-app/dist/`. Copy it into the app's `dist/` and import it relatively. The app host does not serve it, and the `@ninox/app-sdk` package on npm is an older, unrelated iframe bridge.
 
+The shipped copy carries one fix over the original 0.1.0 build: it sends `list` options (filter, limit, offset, sort, fields) also in browsers without `URLSearchParams.size` (Safari before 17, Chrome before 113, Firefox before 112). An unpatched copy silently drops them there, so `offset` is ignored and a paging loop never ends. Use the shipped file, not one from another source.
+
 ```html
 <script type="module">
   import { createNinoxApp, isRateLimited } from './ninox-app-sdk.js';
@@ -27,9 +29,9 @@ With a bundler, import from the local file (`import { createNinoxApp } from './l
 
 The first SDK call starts an anonymous session (`POST /_ninox/api/v1/session/anonymous`) and keeps the token in memory for 15 minutes. On a 401 it starts a new session once and retries. Nothing is stored in cookies or `localStorage`.
 
-All calls go to `/_ninox/api/v1` on the app's own origin. The gateway sends no CORS headers, so the app must be served from its Ninox subdomain to talk to Ninox; opening `dist/index.html` from disk shows the layout but every data call fails. Ship no files under a `_ninox/` folder.
+All calls go to `/_ninox/api/v1` on the app's own origin. The gateway sends no CORS headers, so the app must be served from its Ninox subdomain to talk to Ninox; opening `dist/index.html` from disk shows the layout but every data call fails. For local testing, `scripts/mock_gateway.py` serves the app with a stand-in for the gateway. Ship no files under a `_ninox/` folder.
 
-A redeploy ends every open session; the SDK recovers by itself on the next call.
+A redeploy, or 15 minutes after the session started, ends the session; the SDK starts a new one by itself on the next call. That matters for [attach](#attach).
 
 ## createNinoxApp
 
@@ -43,7 +45,7 @@ interface NinoxApp {
 }
 ```
 
-Leave `options` empty in production.
+Leave `options` empty in production. Call `table()` with a literal name (`app.table('orders')`), directly or bound once (`const orders = app.table('orders')`); `check_app.py` verifies every literal name, and verbs and fields only for calls made directly on `app.table('…')` or on such a bound handle, not inside helpers.
 
 ## list
 
@@ -69,7 +71,7 @@ const page = await app.table('extras').list({
 
 Every filtered or sorted field must be declared and readable, and must not be one the table's `rowFilter` already constrains.
 
-To read more than 200 rows, page with `offset` until `hasMore` is false.
+To read more than 200 rows, page with `offset` until `hasMore` is false, and stop early when a page brings no new rows; the `listAll` helper under [Patterns](#patterns) does both.
 
 ## get
 
@@ -87,6 +89,10 @@ table(name).create(values: Record<string, unknown>) → Promise<{ id: string }>
 
 Needs the table's `create` verb, and every key must be a declared, writable field. Send plain JSON values: strings, numbers, booleans, `YYYY-MM-DD` strings for dates.
 
+- A Text field (every field of a table without a seed CSV) accepts strings, numbers, and booleans and stores them as text.
+- A typed field checks the value: Yes/No takes `true`/`false` only, Number a number or numeric text, Date `YYYY-MM-DD` or an epoch number. A choice field takes the option's name and stores its ID.
+- A value the field rejects, a missing required field, or a full record quota comes back as 500 `Internal server error` (code `UNEXPECTED_ERROR`), not as a 400. Validate in the browser and send typed values.
+
 ## attach
 
 ```ts
@@ -95,7 +101,7 @@ table(name).attach(id, file: Blob | File, fileName?: string) → Promise<{ docum
 
 Adds the file to the row's documents in Ninox.
 
-- Only for a row **this page instance created** with `create`. The proof is kept in memory, so a page reload loses it and `attach` throws `Files can only be attached to a row this page created`.
+- Only for a row **this page instance created** with `create`, **in the same session**. The proof is kept in memory: after a page reload `attach` throws `Files can only be attached to a row this page created`; after the session ends (15 minutes, or a redeploy) it fails with 403 `This session did not create that row`. Call `attach` right after each `create`, not at the end of a long form.
 - Needs the table's `create` verb.
 - PDF, JPEG, PNG, GIF, or WebP, detected from the file content, at most **1 MiB**. Anything else is 415 `Only PDF and image files (JPEG, PNG, GIF, WebP) are accepted`. Check type and size in the browser before submitting.
 
@@ -104,7 +110,7 @@ Adds the file to the row's documents in Ninox.
 `values` is keyed by internal field name and holds the stored value:
 
 - Numbers come back as numbers.
-- Choice and multiple-choice fields return the option **ID**, not the label. Store display text in Text fields when the app has to show it.
+- Choice and multiple-choice fields return the option **ID**, not the label (even though `create` accepts the name). Store display text in Text fields when the app has to show it.
 - File fields return `{ documentId, documentVersionId, fileName, fileSize, fileType }`, not a URL.
 - Treat booleans and dates defensively: compare with `value === true || value === 'true'`, and format dates with `String(value).slice(0, 10)`.
 - Hidden fields (`{ "read": [] }`) and undeclared fields are absent.
@@ -112,7 +118,7 @@ Adds the file to the row's documents in Ninox.
 
 ## Errors and limits
 
-Every failure throws `NinoxAppError` with `status`, `message`, and `code` (`FORBIDDEN`, `BAD_REQUEST`, `NOT_FOUND`, `TOO_MANY_REQUESTS`, `UNAUTHORIZED`, `UNEXPECTED_ERROR`). Helpers: `isForbidden(error)` (403), `isRateLimited(error)` (429).
+Every failure throws `NinoxAppError` with `status`, `message`, and `code` (`BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `TOO_MANY_REQUESTS`, `UNEXPECTED_ERROR`). Helpers: `isForbidden(error)` (403), `isRateLimited(error)` (429).
 
 | Status | Message (start) | Cause |
 |---|---|---|
@@ -125,23 +131,25 @@ Every failure throws `NinoxAppError` with `status`, `message`, and `code` (`FORB
 | 404 | `No app is served at this address` | app unpublished, suspended, or Custom Apps off |
 | 413 / 415 | upload too large / wrong type | see [attach](#attach) |
 | 429 | rate limited | see below |
+| 500 | `Internal server error` | the workspace refused the write: wrong value type for a typed field, unknown choice option, missing required field, record quota; or more than 10 sort keys |
 
 Rate limits per minute: 300 requests per visitor IP, 6000 per app, 20 session starts per visitor. A 429 carries `Retry-After`. Load catalogs once per page view and keep them in memory.
 
 ## Patterns
 
-**Load several catalogs in parallel**, then render:
+**Load several tables in parallel**, then render. Pass handles made with literal names, and stop when a page brings no new rows:
 
 ```js
 async function listAll(table, options = {}) {
-  const rows = [];
+  const rows = new Map();
   for (let offset = 0; ; offset += 200) {
-    const page = await app.table(table).list({ ...options, limit: 200, offset });
-    rows.push(...page.rows.map((row) => ({ id: row.id, ...row.values })));
-    if (!page.hasMore) return rows;
+    const page = await table.list({ ...options, limit: 200, offset });
+    const before = rows.size;
+    for (const row of page.rows) rows.set(row.id, { id: row.id, ...row.values });
+    if (!page.hasMore || rows.size === before) return [...rows.values()];
   }
 }
-const [cars, extras] = await Promise.all([listAll('cars'), listAll('extras')]);
+const [events, venues] = await Promise.all([listAll(app.table('events')), listAll(app.table('venues'))]);
 ```
 
 **Link rows with a shared key.** The deploy never creates reference fields, so related rows carry a common key instead. Generate a key in the browser (`CR-${Date.now().toString(36).toUpperCase()}`) and write it into a Text field on every related row.
@@ -157,4 +165,4 @@ for (const doc of documents) {
 await app.table('bookings').create({ booking_number: bookingNumber, total });
 ```
 
-**Disable the submit button while saving,** and show `error.message` on failure; there is no server-side de-duplication.
+**Disable the submit button while saving,** and show `error.message` on failure; there is no server-side de-duplication, and anyone with the URL can submit.

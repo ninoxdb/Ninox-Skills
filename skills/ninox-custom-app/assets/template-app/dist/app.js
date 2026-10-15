@@ -14,13 +14,16 @@ function errorText(error) {
     return isRateLimited(error) ? 'Too many requests. Wait a minute and try again.' : error.message;
 }
 
-// Reads every page of a table; list() returns at most 200 rows per call.
+// Reads every page of a table; list() returns at most 200 rows per call. Pass a handle made with a
+// literal name, app.table('items'), so check_app.py can verify the table. The loop also stops when a
+// page brings no new rows, so a server that ignores offset cannot make it spin forever.
 async function listAll(table, options = {}) {
-    const rows = [];
+    const rows = new Map();
     for (let offset = 0; ; offset += 200) {
-        const page = await app.table(table).list({ ...options, limit: 200, offset });
-        rows.push(...page.rows.map((row) => ({ id: row.id, ...row.values })));
-        if (!page.hasMore) return rows;
+        const page = await table.list({ ...options, limit: 200, offset });
+        const before = rows.size;
+        for (const row of page.rows) rows.set(row.id, { id: row.id, ...row.values });
+        if (!page.hasMore || rows.size === before) return [...rows.values()];
     }
 }
 
@@ -94,7 +97,7 @@ $('request-form').addEventListener('submit', submitRequest);
 window.addEventListener('hashchange', route);
 
 try {
-    state.items = await listAll('items', { sort: [{ field: 'name', direction: 'asc' }] });
+    state.items = await listAll(app.table('items'), { sort: [{ field: 'name', direction: 'asc' }] });
     $('catalog-status').hidden = true;
     renderCategories();
     renderItems();
