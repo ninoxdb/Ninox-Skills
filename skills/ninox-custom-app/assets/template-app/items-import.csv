@@ -1,0 +1,7 @@
+sku,name,category,description,price,published,internal_note
+ITEM-001,Standing desk,Furniture,"Electric height-adjustable desk, 160 x 80 cm",549.00,true,Supplier A
+ITEM-002,Ergonomic chair,Furniture,"Mesh back, adjustable armrests and lumbar support",389.00,true,Supplier A
+ITEM-003,27-inch monitor,Hardware,"4K display with USB-C power delivery",329.00,true,Supplier B
+ITEM-004,Docking station,Hardware,"USB-C dock with two display outputs",189.00,true,Supplier B
+ITEM-005,Noise-cancelling headset,Hardware,"Wireless headset with boom microphone",149.00,true,Supplier C
+ITEM-006,Desk lamp,Furniture,"Dimmable LED lamp with warm and cold light",59.00,false,Discontinued

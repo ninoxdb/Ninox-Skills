@@ -1,0 +1,33 @@
+{
+    "name": "Request portal",
+    "entry": "dist/index.html",
+    "routing": "static",
+    "roles": { "anonymous": "000000000000000000000003" },
+    "auth": { "anonymous": true },
+    "data": {
+        "items": {
+            "read": ["anonymous"],
+            "fields": {
+                "sku": {},
+                "name": {},
+                "category": {},
+                "description": {},
+                "price": {},
+                "internal_note": { "read": [] }
+            },
+            "rowFilter": { "anonymous": "published = true" }
+        },
+        "requests": {
+            "create": ["anonymous"],
+            "fields": {
+                "request_number": {},
+                "item_sku": {},
+                "item_name": {},
+                "quantity": {},
+                "customer_name": {},
+                "customer_email": {},
+                "message": {}
+            }
+        }
+    }
+}
