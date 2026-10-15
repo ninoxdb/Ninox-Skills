@@ -78,7 +78,7 @@ Read `references/app-json.md` before writing it: the parser rejects unknown keys
 - Names of tables and fields are lowercase `snake_case`. Ninox creates the tables from these names, and a name that differs from an existing table's internal name silently creates a new, empty table.
 - Declare **every** field the app reads, filters, sorts, or writes. An undeclared field is invisible to the app.
 - Hide internal fields of read tables with `{ "read": [] }`; filter rows with a `rowFilter` such as `"published = true"`.
-- Map the `anonymous` role to the built-in viewer role ID `000000000000000000000003`, and set `"auth": { "anonymous": true }`. This also changes permissions inside Ninox: workspace viewers gain create on the create tables, and editors lose read on the read tables and create on the create tables.
+- Map the `anonymous` role to the built-in viewer role ID `000000000000000000000003`, and set `"auth": { "anonymous": true }`. This is expected to change permissions inside Ninox too: workspace viewers gain create on the create tables, and editors lose read on the read tables and create on the create tables. That follows from Ninox's permission rules but is not yet confirmed on a live deploy, so tell the user and keep the app in its own module.
 
 Done when every table and field the UI will touch is declared with the verb it needs, and nothing else is.
 

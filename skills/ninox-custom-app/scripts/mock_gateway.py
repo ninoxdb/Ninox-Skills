@@ -29,7 +29,6 @@ import importlib.util
 import io
 import json
 import os
-import re
 import sys
 import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -94,6 +93,19 @@ def compare(stored, op: str, literal) -> bool:
     else:
         a, b = str(stored), str(literal)
     return {">": a > b, ">=": a >= b, "<": a < b, "<=": a <= b}[op]
+
+
+def multipart_file(content_type: str, body: bytes) -> bytes:
+    """The bytes of the multipart part named "file", found by splitting on the boundary."""
+    boundary = next((p.split("=", 1)[1].strip('"') for p in content_type.split(";")
+                     if p.strip().startswith("boundary=")), "")
+    if not boundary:
+        return b""
+    for part in body.split(b"--" + boundary.encode()):
+        head, sep, data = part.partition(b"\r\n\r\n")
+        if sep and b'name="file"' in head:
+            return data[:-2] if data.endswith(b"\r\n") else data
+    return b""
 
 
 def sort_key(value):
@@ -182,10 +194,12 @@ class Handler(SimpleHTTPRequestHandler):
 
     def send_head(self):
         path = unquote(urlparse(self.path).path)
-        target = Path(self.directory) / path.lstrip("/")
+        base = os.path.normpath(os.path.abspath(self.directory))
+        target = os.path.normpath(os.path.join(base, path.lstrip("/")))
         if path.endswith("/"):
-            target = target / "index.html"
-        if not target.is_file():
+            target = os.path.join(target, "index.html")
+        # Only files inside dist/ are served; "../" in the path cannot leave it.
+        if not target.startswith(base + os.sep) or not os.path.isfile(target):
             self.send_response(404)
             self.send_header("content-type", "text/plain")
             self.send_header("content-length", "9")
@@ -277,8 +291,7 @@ class Handler(SimpleHTTPRequestHandler):
             record = parts[3]
             if (table, record) not in self.sessions[session_id] or not self.headers.get("x-ninox-row-receipt"):
                 return self.fail(403, "This session did not create that row")
-            match = re.search(rb"\r\n\r\n(.*)\r\n--", body, re.DOTALL)
-            content = match.group(1) if match else b""
+            content = multipart_file(self.headers.get("content-type", ""), body)
             if len(content) > MAX_ATTACH:
                 return self.fail(413, "The file is larger than 1 MiB")
             kind = next((t for magic, t in MAGIC if content.startswith(magic)), None)

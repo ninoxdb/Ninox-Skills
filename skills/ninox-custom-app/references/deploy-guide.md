@@ -51,7 +51,7 @@ If the start page shows a plain `Not found`, wait a minute and reload; the addre
 
 - **Field types.** Tables without a seed CSV have only Text fields. Change numbers, dates, and amounts to the right type in the Ninox app's data model; later deploys never change field types again. After that, the form must send values of the new type, or visitors get `Internal server error` on submit.
 - **Labels.** Rename table and field labels freely; the custom app uses the internal names, which stay the same.
-- **Permissions.** Each deploy sets who may read and create in the declared tables. With the usual viewer mapping, workspace editors can no longer read the app's read tables or add rows to its create tables, and workspace viewers can add rows to its create tables. Admins keep full access. `check_app.py` prints these effects per table. Plan team access around it, and expect manual changes to these permissions to be reset on the next deploy.
+- **Permissions.** Each deploy sets who may read and create in the declared tables. With the usual viewer mapping, workspace editors can no longer read the app's read tables or add rows to its create tables, and workspace viewers can add rows to its create tables. Admins keep full access. These effects are expected from Ninox's permission rules but not yet confirmed on a live deploy, so check the tables' permissions in the Ninox app after the first deploy. `check_app.py` prints the expected effects per table. Plan team access around it, and expect manual changes to these permissions to be reset on the next deploy.
 
 ## Updating the custom app
 

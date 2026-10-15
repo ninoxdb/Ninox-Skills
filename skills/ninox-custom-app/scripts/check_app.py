@@ -504,7 +504,7 @@ def note_role_effects(report: Report, model: dict) -> None:
             parts.append(f"{label}: admins and the {'/'.join(mapped)} role only"
                          + (f" ({', '.join(effects)})" if effects else ""))
         if parts:
-            report.note(f"table {table}", f"each deploy sets its permissions inside Ninox. {'; '.join(parts)}")
+            report.note(f"table {table}", f"each deploy is expected to set its permissions inside Ninox (not yet confirmed on a live deploy). {'; '.join(parts)}")
 
 
 # ---------------------------------------------------------------------------------------------
@@ -801,8 +801,8 @@ def mask_js(src: str) -> tuple[str, list[str]]:
     return "".join(out), literals
 
 
-RE_SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script\s*>", re.IGNORECASE | re.DOTALL)
-RE_HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+RE_SCRIPT = re.compile(r"<script\b([^>]*)>(.*?)</script\b[^>]*>", re.IGNORECASE | re.DOTALL)
+RE_HTML_COMMENT = re.compile(r"<!--.*?--!?>", re.DOTALL)
 RE_HTML_REF = re.compile(r"""<(?:script|link|img|source|iframe)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 RE_IMPORT = re.compile(r"(?:(?:^|[;{}\n])\s*(?:import|export)\b[^\x01;]*?\bfrom\s*|(?:^|[;{}\n(=,:]|\bawait|\breturn)\s*import\s*(?:\(\s*)?)\x01(\d+)\x01")
 RE_TABLE_LITERAL = re.compile(r"\.\s*table\s*\(\s*\x01(\d+)\x01\s*\)")

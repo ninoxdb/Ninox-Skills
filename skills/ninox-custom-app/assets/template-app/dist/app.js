@@ -77,7 +77,9 @@ async function submitRequest(event) {
             request_number: requestNumber,
             item_sku: state.selected.sku,
             item_name: state.selected.name,
-            quantity: Number(form.quantity.value),
+            // Sent as text: accepted by the Text field the deploy creates, and by a Number field if
+            // the team retypes it later.
+            quantity: form.quantity.value,
             customer_name: form.customer_name.value.trim(),
             customer_email: form.customer_email.value.trim(),
             message: form.message.value.trim(),
