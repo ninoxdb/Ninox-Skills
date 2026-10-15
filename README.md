@@ -25,6 +25,15 @@ Building Custom Widgets for the Ninox v4 PageBuilder: sandboxed HTML/CSS/JS mini
 - How widgets are stored, served, and authored in the in-app IDE
 - Where Custom Widgets end and the separate Dynamic HTML component begins
 
+### `ninox-custom-app`
+
+Building Ninox Custom Apps: standalone web apps (catalogs, order and booking forms, portals) that Ninox hosts on their own `ninoxapps.com` subdomain, backed by the tables of a Ninox 4 module.
+
+- Produces the complete folder for the "Deploy custom app" dialog: `app.json` (data model and access rules), seed CSVs, and a built `dist/` with the app SDK
+- Designs within what custom apps support today: anonymous visitors, server-filtered reads, record creation with file attachments
+- A check script that replays the deploy validation offline (manifest rules, row filters, CSV merge keys, the field types the first deploy will infer, files the upload would corrupt, SDK calls against undeclared tables or fields) and packages a clean upload folder
+- A starter template app, and a step-by-step deploy walkthrough with troubleshooting for every deploy error message
+
 ### `excel-to-ninox`
 
 A phased workflow for turning an Excel workbook into a Ninox app that replaces it, not a cell-by-cell copy. It transcribes the workbook's actual logic (formulas, running totals, lookup chains, scattered calculator blocks), gets the design approved by the user before anything is built, then constructs the app through the Public API. Includes an inspector script that handles very large workbooks without loading every cell, and hard rules against silent workarounds: a formula that won't deploy is reported as an error, never quietly replaced with static values.
@@ -37,7 +46,7 @@ Copy the skill folders into wherever your assistant looks for skills. For Claude
 
 ```bash
 git clone https://github.com/<you>/<this-repo>.git
-cp -r <this-repo>/ninox <this-repo>/ninox-custom-widget <this-repo>/excel-to-ninox ~/.claude/skills/
+cp -r <this-repo>/ninox <this-repo>/ninox-custom-widget <this-repo>/ninox-custom-app <this-repo>/excel-to-ninox ~/.claude/skills/
 ```
 
 On Claude.ai, upload the folders as custom skills in your settings.
@@ -48,7 +57,7 @@ On Claude.ai, upload the folders as custom skills in your settings.
 - For the API skill: `curl` and `python3` on the machine the assistant runs on
 - `NINOX_API_KEY` in the environment, or saved in `~/.ninox/.env`
 
-Custom Widgets additionally sit behind Ninox's `CustomWidgets` feature flag.
+Custom Widgets additionally sit behind Ninox's `CustomWidgets` feature flag. Custom Apps need Custom Apps enabled for the workspace and a workspace admin to deploy; the custom-app skill needs no API key.
 
 ## A note on trust
 

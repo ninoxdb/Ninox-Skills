@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Request portal</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Request portal</h1>
+        <p>Pick an item and send us a request.</p>
+    </header>
+    <main>
+        <section id="view-catalog">
+            <div class="toolbar">
+                <label for="category">Category</label>
+                <select id="category"><option value="">All</option></select>
+            </div>
+            <p class="status" id="catalog-status">Loading items…</p>
+            <div class="grid" id="items"></div>
+        </section>
+
+        <section id="view-request" hidden>
+            <a class="back" href="#/">← Back to items</a>
+            <h2 id="request-title"></h2>
+            <form id="request-form" novalidate>
+                <label for="quantity">Quantity</label>
+                <input id="quantity" name="quantity" type="number" min="1" value="1" required />
+                <label for="customer-name">Your name</label>
+                <input id="customer-name" name="customer_name" type="text" autocomplete="name" required />
+                <label for="customer-email">Email</label>
+                <input id="customer-email" name="customer_email" type="email" autocomplete="email" required />
+                <label for="message">Message</label>
+                <textarea id="message" name="message" rows="4"></textarea>
+                <p class="status" id="request-status"></p>
+                <button id="submit" type="submit">Send request</button>
+            </form>
+        </section>
+
+        <section id="view-done" hidden>
+            <h2>Thank you</h2>
+            <p>Your request number is <strong id="done-number"></strong>.</p>
+            <a class="button" href="#/">Back to items</a>
+        </section>
+    </main>
+</body>
+</html>
